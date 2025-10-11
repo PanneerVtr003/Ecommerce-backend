@@ -10,7 +10,7 @@ const app = express();
 // Allowed origins
 const allowedOrigins = [
   'http://localhost:3000', // local frontend
-  'https://ecommerce-frontend-sand-six.vercel.app' // deployed frontend
+  'https://ecommerce-frontend-flax-psi.vercel.app/' // deployed frontend
 ];
 
 // CORS middleware
