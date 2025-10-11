@@ -1,41 +1,61 @@
-import express from "express";
-import dotenv from "dotenv";
-import mongoose from "mongoose";
-import cors from "cors";
-
-import userRoutes from "./routes/userRoutes.js";
-import orderRoutes from "./routes/orderRoutes.js";
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import userRoutes from './routes/userRoutes.js';
 
 dotenv.config();
-
 const app = express();
 
-// ✅ Middleware
-app.use(cors());
+// Allowed origins
+const allowedOrigins = [
+  'http://localhost:3000', // local frontend
+  'https://ecommerce-frontend-sand-six.vercel.app' // deployed frontend
+];
+
+// CORS middleware
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true); // allow non-browser requests
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error('CORS policy not allowed for this origin'), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+}));
+
+// Parse JSON
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// ✅ API Routes
-app.use("/api/auth", userRoutes); // Changed to /api/auth so frontend matches
-app.use("/api/orders", orderRoutes);
+// Routes
+app.use('/api/users', userRoutes);
 
-// ✅ Default Route
-app.get("/", (req, res) => {
-  res.send("🚀 E-commerce backend API is running successfully!");
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', message: 'Backend is running' });
 });
 
-// ✅ MongoDB Connection
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGO_URI);
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    console.error(`❌ MongoDB connection failed: ${error.message}`);
-    process.exit(1); // Stop app if DB fails
-  }
-};
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({ message: 'API route not found' });
+});
 
-connectDB();
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('Error:', err.message);
+  res.status(500).json({ message: 'Internal server error', error: err.message });
+});
 
-// ✅ Start Server
+// Connect MongoDB
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('MongoDB connected'))
+.catch(err => console.error('MongoDB connection error:', err));
+
+// Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -1,30 +1,16 @@
-import express from "express";
-import {
-  getProducts,
-  getProductById,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-  createProductReview,
-  getTopProducts,
-} from "../controllers/productController.js";
-import { protect, admin } from "../middleware/authMiddleware.js";
+// src/components/ProtectedRoute.js
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-const router = express.Router();
+const ProtectedRoute = ({ children }) => {
+  const { user } = useAuth();
 
-router
-  .route("/")
-  .get(getProducts)
-  .post(protect, admin, createProduct);
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
-router.route("/top").get(getTopProducts);
+  return children;
+};
 
-router
-  .route("/:id")
-  .get(getProductById)
-  .put(protect, admin, updateProduct)
-  .delete(protect, admin, deleteProduct);
-
-router.route("/:id/reviews").post(protect, createProductReview);
-
-export default router;
+export default ProtectedRoute;
