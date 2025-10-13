@@ -7,7 +7,6 @@ dotenv.config();
 
 const app = express();
 
-// CORS configuration
 app.use(cors({
   origin: true,
   credentials: true,
@@ -26,7 +25,7 @@ app.get('/api/debug/mongodb', async (req, res) => {
       mongodb: {
         connected: isConnected,
         database: dbName,
-        readyState: mongoose.connection.readyState,
+        usingAtlas: true,
         connectionString: process.env.MONGODB_URI ? 'Set' : 'Not set'
       }
     });
@@ -37,36 +36,6 @@ app.get('/api/debug/mongodb', async (req, res) => {
         connected: false,
         error: error.message
       }
-    });
-  }
-});
-
-// Test user creation directly
-app.post('/api/debug/test-register', async (req, res) => {
-  try {
-    const User = require('./models/User');
-    const { username, email, password } = req.body;
-    
-    const testUser = await User.create({
-      username: username || 'testuser',
-      email: email || 'test@example.com', 
-      password: password || 'password123'
-    });
-    
-    res.json({
-      success: true,
-      message: 'Test user created successfully',
-      user: {
-        id: testUser._id,
-        username: testUser.username,
-        email: testUser.email
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Test registration failed',
-      error: error.message
     });
   }
 });
@@ -82,41 +51,61 @@ app.use('/api/orders', orderRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
+  
   res.json({
     success: true,
-    message: 'Server is running!',
+    message: 'Server is running with MongoDB Atlas!',
+    database: dbStatus,
     timestamp: new Date().toISOString()
   });
 });
 
 const PORT = process.env.PORT || 5000;
 
-// MongoDB connection with detailed logging
-console.log('🔧 Attempting MongoDB connection...');
-console.log('📝 Connection string:', process.env.MONGODB_URI ? 'Set' : 'Not set');
+// MongoDB connection
+const connectDB = async () => {
+  try {
+    console.log('🔧 Connecting to MongoDB Atlas...');
+    
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MONGODB_URI environment variable is not set');
+    }
+    
+    console.log('📝 Using database:', process.env.MONGODB_URI.split('@')[1]?.split('/')[1]?.split('?')[0] || 'unknown');
+    
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    
+    console.log('✅ Connected to MongoDB Atlas successfully!');
+    console.log('📊 Database:', mongoose.connection.db.databaseName);
+    
+  } catch (error) {
+    console.error('❌ MongoDB Atlas connection failed:');
+    console.error('Error message:', error.message);
+    
+    if (error.message.includes('bad auth') || error.message.includes('Authentication failed')) {
+      console.log('\n🔑 AUTHENTICATION FAILED:');
+      console.log('Please check:');
+      console.log('1. MongoDB Atlas Database Access - user "panneer" exists');
+      console.log('2. Password is correct');
+      console.log('3. Network Access allows all IPs (0.0.0.0/0)');
+    }
+    
+    // Don't exit - let server run without DB
+    console.log('⚠️  Server running without database connection');
+  }
+};
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ecommerce', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  console.log('✅ Connected to MongoDB successfully');
-  console.log('📊 Database:', mongoose.connection.db.databaseName);
+// Start server
+app.listen(PORT, async () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📍 Health: https://ecommerce-backend-9987.onrender.com/api/health`);
+  console.log(`📍 Debug: https://ecommerce-backend-9987.onrender.com/api/debug/mongodb`);
   
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-  });
-})
-.catch((error) => {
-  console.error('❌ MongoDB connection failed:');
-  console.error('Error:', error.message);
-  console.log('💡 Please check your MONGODB_URI environment variable');
-  
-  // Start server without MongoDB for debugging
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT} (without MongoDB)`);
-    console.log('⚠️  Some features may not work without database connection');
-  });
+  await connectDB();
 });
 
 module.exports = app;
