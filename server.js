@@ -7,25 +7,71 @@ dotenv.config();
 
 const app = express();
 
-// FIXED CORS configuration - Allow both localhost and production
+// CORS configuration
 app.use(cors({
-  origin: [
-    'http://localhost:3000',  // Your local development
-    'https://ecommerce-frontend-flax-psi.vercel.app',  // Your production frontend
-    'http://localhost:3001',  // Optional: other local ports
-    'https://your-other-domain.vercel.app'  // Any other domains you use
-  ],
+  origin: true,
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
-// Handle preflight requests
-app.options('*', cors());
 
 app.use(express.json());
 
-// Import and use routes
+// Debug endpoint to check MongoDB status
+app.get('/api/debug/mongodb', async (req, res) => {
+  try {
+    const isConnected = mongoose.connection.readyState === 1;
+    const dbName = mongoose.connection.db?.databaseName;
+    
+    res.json({
+      success: true,
+      mongodb: {
+        connected: isConnected,
+        database: dbName,
+        readyState: mongoose.connection.readyState,
+        connectionString: process.env.MONGODB_URI ? 'Set' : 'Not set'
+      }
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      mongodb: {
+        connected: false,
+        error: error.message
+      }
+    });
+  }
+});
+
+// Test user creation directly
+app.post('/api/debug/test-register', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const { username, email, password } = req.body;
+    
+    const testUser = await User.create({
+      username: username || 'testuser',
+      email: email || 'test@example.com', 
+      password: password || 'password123'
+    });
+    
+    res.json({
+      success: true,
+      message: 'Test user created successfully',
+      user: {
+        id: testUser._id,
+        username: testUser.username,
+        email: testUser.email
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Test registration failed',
+      error: error.message
+    });
+  }
+});
+
+// Import routes
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const orderRoutes = require('./routes/orders');
@@ -38,32 +84,39 @@ app.use('/api/orders', orderRoutes);
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
-    message: 'Server is running with CORS fixed!',
-    timestamp: new Date().toISOString(),
-    allowedOrigins: [
-      'http://localhost:3000',
-      'https://ecommerce-frontend-flax-psi.vercel.app'
-    ]
+    message: 'Server is running!',
+    timestamp: new Date().toISOString()
   });
 });
 
 const PORT = process.env.PORT || 5000;
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ecommerce')
-  .then(() => {
-    console.log('✅ Connected to MongoDB');
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`✅ CORS enabled for:`);
-      console.log(`   - http://localhost:3000`);
-      console.log(`   - https://ecommerce-frontend-flax-psi.vercel.app`);
-    });
-  })
-  .catch((error) => {
-    console.error('MongoDB connection error:', error);
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT} (without MongoDB)`);
-    });
+// MongoDB connection with detailed logging
+console.log('🔧 Attempting MongoDB connection...');
+console.log('📝 Connection string:', process.env.MONGODB_URI ? 'Set' : 'Not set');
+
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ecommerce', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => {
+  console.log('✅ Connected to MongoDB successfully');
+  console.log('📊 Database:', mongoose.connection.db.databaseName);
+  
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
   });
+})
+.catch((error) => {
+  console.error('❌ MongoDB connection failed:');
+  console.error('Error:', error.message);
+  console.log('💡 Please check your MONGODB_URI environment variable');
+  
+  // Start server without MongoDB for debugging
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT} (without MongoDB)`);
+    console.log('⚠️  Some features may not work without database connection');
+  });
+});
 
 module.exports = app;
