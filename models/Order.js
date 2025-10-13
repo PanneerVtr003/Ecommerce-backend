@@ -27,10 +27,6 @@ const orderSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  userEmail: {  // Add this field to track user by email
-    type: String,
-    required: true
-  },
   items: [orderItemSchema],
   totalAmount: {
     type: Number,
@@ -77,5 +73,8 @@ const orderSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Add index for better query performance
+orderSchema.index({ user: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Order', orderSchema);
