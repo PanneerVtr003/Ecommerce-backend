@@ -1,29 +1,56 @@
-import mongoose from "mongoose";
+const mongoose = require('mongoose');
 
-const orderSchema = new mongoose.Schema({
-  items: [
-    {
-      id: { type: String, required: true },
-      name: { type: String, required: true },
-      image: String,
-      price: { type: Number, required: true },
-      quantity: { type: Number, required: true },
-    },
-  ],
-  total: { type: Number, required: true },
-  shippingAddress: {
-    firstName: { type: String, required: true },
-    lastName: { type: String, required: true },
-    address: { type: String, required: true },
-    city: { type: String, required: true },
-    zipCode: { type: String, required: true },
+const orderItemSchema = new mongoose.Schema({
+  productId: {
+    type: String,
+    required: true
   },
-  paymentMethod: { type: String, enum: ["card", "cod"], required: true },
-  paymentCode: { type: String },
-  email: { type: String, required: true },
-  status: { type: String, default: "pending" },
-  createdAt: { type: Date, default: Date.now },
+  name: {
+    type: String,
+    required: true
+  },
+  price: {
+    type: Number,
+    required: true
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    min: 1
+  }
 });
 
-const Order = mongoose.model("Order", orderSchema);
-export default Order;
+const orderSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  items: [orderItemSchema],
+  totalAmount: {
+    type: Number,
+    required: true
+  },
+  shippingAddress: {
+    firstName: String,
+    lastName: String,
+    email: String,
+    address: String,
+    city: String,
+    zipCode: String
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['card', 'cod'],
+    required: true
+  },
+  paymentCode: String,
+  status: {
+    type: String,
+    enum: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'],
+    default: 'pending'
+  }
+}, {
+  timestamps: true
+});
+
+module.exports = mongoose.model('Order', orderSchema);

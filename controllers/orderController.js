@@ -1,48 +1,96 @@
-import Order from "../models/Order.js";
+const Order = require('../models/Order');
 
-// ✅ Create new order
-export const createOrder = async (req, res) => {
+// Create new order
+const createOrder = async (req, res) => {
   try {
-    const { items, total, shippingAddress, paymentMethod, email, paymentCode } = req.body;
-
-    if (!items || items.length === 0) {
-      return res.status(400).json({ error: "No order items provided" });
-    }
-
-    const order = new Order({
+    const {
       items,
       total,
       shippingAddress,
       paymentMethod,
-      email,
+      paymentCode
+    } = req.body;
+
+    const order = await Order.create({
+      user: req.user?._id,
+      items,
+      totalAmount: total,
+      shippingAddress,
+      paymentMethod,
       paymentCode,
+      status: 'pending'
     });
 
-    const savedOrder = await order.save();
-    console.log("✅ Order saved:", savedOrder);
-    res.status(201).json(savedOrder);
-  } catch (err) {
-    console.error("❌ Failed to create order:", err);
-    res.status(500).json({ error: "Failed to create order" });
+    // Populate the order
+    const populatedOrder = await Order.findById(order._id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Order created successfully',
+      order: populatedOrder
+    });
+  } catch (error) {
+    console.error('Create order error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while creating order'
+    });
   }
 };
 
-// ✅ Get all orders
-export const getAllOrders = async (req, res) => {
+// Get user orders
+const getUserOrders = async (req, res) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
-    res.json(orders);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch orders" });
+    const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      orders
+    });
+  } catch (error) {
+    console.error('Get orders error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching orders'
+    });
   }
 };
 
-// ✅ Get orders by email
-export const getOrdersByEmail = async (req, res) => {
+// Get order by ID
+const getOrderById = async (req, res) => {
   try {
-    const orders = await Order.find({ email: req.params.email }).sort({ createdAt: -1 });
-    res.json(orders);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch user orders" });
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    // Check if order belongs to user or user is admin
+    if (order.user && order.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to access this order'
+      });
+    }
+
+    res.json({
+      success: true,
+      order
+    });
+  } catch (error) {
+    console.error('Get order error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching order'
+    });
   }
+};
+
+module.exports = {
+  createOrder,
+  getUserOrders,
+  getOrderById
 };
