@@ -1,30 +1,30 @@
-const Order = require("../models/Order");
-const { sendOrderConfirmation } = require("../utils/mailer");
+const Order = require('../models/order.model');
+const { sendOrderConfirmation } = require('../utils/mailer');
 
 const createOrder = async (req, res) => {
   try {
+    const user = req.user || {}; // From auth middleware
     const { items, total, shippingAddress, paymentMethod, paymentCode } = req.body;
 
-    if (!items || items.length === 0) return res.status(400).json({ message: "Cart is empty" });
-
-    const order = await Order.create({
+    const order = new Order({
+      user: user._id || null,
       items,
       total,
       shippingAddress,
       paymentMethod,
       paymentCode,
-      user: req.user?._id || null,
     });
 
-    // Send email
-    sendOrderConfirmation(order, req.user)
-      .then(() => console.log("✅ Order email sent"))
-      .catch(err => console.error("❌ Failed sending order email", err));
+    await order.save();
 
-    res.status(201).json({ message: "Order created successfully", order });
+    // Send email
+    const emailResult = await sendOrderConfirmation(order, user);
+    console.log('Email result:', emailResult);
+
+    res.status(201).json({ success: true, order });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: err.message || "Failed to create order" });
+    console.error('❌ Order creation failed:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 

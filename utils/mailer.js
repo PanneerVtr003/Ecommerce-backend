@@ -1,22 +1,22 @@
+// utils/mailer.js
 const nodemailer = require("nodemailer");
 require("dotenv").config();
 
-// Gmail transporter
+// Gmail transporter using App Password
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASS, // 16-char App Password
   },
 });
 
-// Verify transporter
 transporter.verify((err, success) => {
   if (err) console.log("❌ Mailer Error:", err);
   else console.log("✅ Mailer ready to send emails");
 });
 
-// Email template
+// HTML email template
 const userOrderTemplate = (order, user) => `
 <h2>🎉 Order Confirmed!</h2>
 <p>Hello ${user?.username || "Customer"},</p>
