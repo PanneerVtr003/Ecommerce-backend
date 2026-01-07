@@ -1,96 +1,31 @@
-const Order = require('../models/Order');
+const Order = require("../models/Order");
+const { sendOrderConfirmation } = require("../utils/mailer");
 
-// Create new order
 const createOrder = async (req, res) => {
   try {
-    const {
+    const { items, total, shippingAddress, paymentMethod, paymentCode } = req.body;
+
+    if (!items || items.length === 0) return res.status(400).json({ message: "Cart is empty" });
+
+    const order = await Order.create({
       items,
       total,
       shippingAddress,
       paymentMethod,
-      paymentCode
-    } = req.body;
-
-    const order = await Order.create({
-      user: req.user?._id,
-      items,
-      totalAmount: total,
-      shippingAddress,
-      paymentMethod,
       paymentCode,
-      status: 'pending'
+      user: req.user?._id || null,
     });
 
-    // Populate the order
-    const populatedOrder = await Order.findById(order._id);
+    // Send email
+    sendOrderConfirmation(order, req.user)
+      .then(() => console.log("✅ Order email sent"))
+      .catch(err => console.error("❌ Failed sending order email", err));
 
-    res.status(201).json({
-      success: true,
-      message: 'Order created successfully',
-      order: populatedOrder
-    });
-  } catch (error) {
-    console.error('Create order error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while creating order'
-    });
+    res.status(201).json({ message: "Order created successfully", order });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message || "Failed to create order" });
   }
 };
 
-// Get user orders
-const getUserOrders = async (req, res) => {
-  try {
-    const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      orders
-    });
-  } catch (error) {
-    console.error('Get orders error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching orders'
-    });
-  }
-};
-
-// Get order by ID
-const getOrderById = async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id);
-
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order not found'
-      });
-    }
-
-    // Check if order belongs to user or user is admin
-    if (order.user && order.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to access this order'
-      });
-    }
-
-    res.json({
-      success: true,
-      order
-    });
-  } catch (error) {
-    console.error('Get order error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching order'
-    });
-  }
-};
-
-module.exports = {
-  createOrder,
-  getUserOrders,
-  getOrderById
-};
+module.exports = { createOrder };

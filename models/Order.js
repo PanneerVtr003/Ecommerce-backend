@@ -1,80 +1,30 @@
 const mongoose = require('mongoose');
 
-const orderItemSchema = new mongoose.Schema({
-  productId: {
+const userSchema = new mongoose.Schema({
+  username: {
     type: String,
-    required: true
-  },
-  name: {
-    type: String,
-    required: true
-  },
-  price: {
-    type: Number,
     required: true,
-    min: 0
+    trim: true,
+    minlength: 3
   },
-  quantity: {
-    type: Number,
-    required: true,
-    min: 1
-  },
-  image: String
-});
-
-const orderSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  items: [orderItemSchema],
-  totalAmount: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  shippingAddress: {
-    firstName: {
-      type: String,
-      required: true
-    },
-    lastName: {
-      type: String,
-      required: true
-    },
-    email: {
-      type: String,
-      required: true
-    },
-    address: {
-      type: String,
-      required: true
-    },
-    city: {
-      type: String,
-      required: true
-    },
-    zipCode: {
-      type: String,
-      required: true
-    }
-  },
-  paymentMethod: {
+  email: {
     type: String,
-    enum: ['card', 'cod'],
-    required: true
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true
   },
-  paymentCode: String,
-  status: {
+  password: {
     type: String,
-    enum: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'],
-    default: 'pending'
+    required: true,
+    minlength: 6
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
-}, {
-  timestamps: true
 });
 
-// Add index for better query performance
-orderSchema.index({ user: 1, createdAt: -1 });
+const User = mongoose.model('User', userSchema);
 
-module.exports = mongoose.model('Order', orderSchema);
+module.exports = User;
